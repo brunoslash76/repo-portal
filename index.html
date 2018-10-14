@@ -6,13 +6,15 @@
   <script crossorigin src="https://unpkg.com/react@16/umd/react.development.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@16/umd/react-dom.development.js"></script>
   <script src='https://unpkg.com/babel-standalone@6/babel.min.js'></script>
+  <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
   <div id='app'></div>
   <script>
     window.API = {
-      fetchPopularRepos(language) {
+      fetchPopularRepos(language = 'all') {
+        console.log(language)
         // "language" can be "javascript", "ruby", "python", or "all"
         const encodedURI = encodeURI(`https://api.github.com/search/repositories?q=stars:>1+language:${language}&sort=stars&order=desc&type=Repositories`)
         return fetch(encodedURI)
@@ -59,67 +61,98 @@
         super(props)
 
         this.state = {
-          repos: []
+          repos: [],
+          activeLanguage: 'all',
+          loading: true
         }
+
+        this.handleSelectLanguage = this.handleSelectLanguage.bind(this)
+        this.fetchRepos = this.fetchRepos.bind(this)
       }
 
       componentDidMount() {
         API.fetchPopularRepos()
           .then((data) => {
-            this.setState({repos: data})
+            this.setState({
+              repos: data,
+              loading: false
+            })
           })
       }
 
-      componentDidUpdate() {
+      componentDidUpdate(prevProps, prevState) {
+        if (prevState.activeLanguage !== this.state.activeLanguage) {
+          this.fetchRepos(this.state.activeLanguage)
+        }
+      }
 
+      fetchRepos(lang) {
+        this.setState({
+          loading: true
+        })
+
+        window.API.fetchPopularRepos(lang)
+          .then((data) => {
+            this.setState({
+              activeLanguage: lang,
+              loading: false
+            })
+          })
+      }
+
+      handleSelectLanguage(lang) {
+        console.log(lang)
+        this.setState({
+          activeLanguage: lang
+        })
       }
 
       render() {
         return (
           <div>
-            <ul>
-              <li>
-                <a>all</a>
-              </li>
-              <li>
-                <a>javascript</a>
-              </li>
-              <li>
-                <a>python</a>
-              </li>
-              <li>
-                <a>ruby</a>
-              </li>
-            </ul>
-            <div>
-              <ItemElement repos={this.state.repos}/>
-            </div>
+            <NavElements onSelectLanguage={this.handleSelectLanguage}/>
+            {
+              this.state.loading === true
+              ? <Loading />
+              : <ItemElement repos={this.state.repos}/>
+            }
           </div>
         )
       }
     }
 
-    function ItemElement(props) {
+    function NavElements(props) {
+      const languages = ['all', 'javascript', 'ruby', 'python']
       return (
-        props.repos.map((repo) => {
-          return (
-            <div>
-              <ul>
-                <li>
-                  <a href={repo.url}>
-                    {repo.url}
-                  </a>
+        <nav>
+          <ul>
+            { languages.map((lang) => (
+                <li key={lang} onClick={() => props.onSelectLanguage(lang)}>
+                  {lang}
                 </li>
-                <li>
-                  {repo.name}
-                </li>
-                <li>
-                  {repo.stargazers_count}
-                </li>
-              </ul>
-            </div>
-          )
-        })
+              ))
+            }
+          </ul>
+        </nav>
+      )
+    }
+
+    function ItemElement(props) {
+      console.log(props)
+      return (
+        <ul className="container">
+          {
+            props.repos.map(({id, name, owner, stargazers_count, html_url}) => (
+              <li key={id} className="repo-item">
+                <ul>
+                  <li><a href={html_url}>{name}</a></li>
+                  <li>@{owner.login}</li>
+                  <li>{stargazers_count} stars</li>
+                </ul>
+              </li>
+            ))
+          }
+        </ul>
       )
     }
 
